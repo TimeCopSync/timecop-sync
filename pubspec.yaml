@@ -48,6 +48,7 @@ dependencies:
   pdf: ^3.10.6
   openapi:
     path: ./openapi
+  validators: ^3.0.0
 
 dependency_overrides:
   intl: 0.18.1

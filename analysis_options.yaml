@@ -8,6 +8,8 @@ analyzer:
 linter:
   rules:
     camel_case_types: true
+    discarded_futures: true
+    unawaited_futures: true
     prefer_void_to_null: true
     void_checks: true
     omit_local_variable_types: false

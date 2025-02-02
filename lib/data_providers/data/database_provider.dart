@@ -17,6 +17,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:random_color/random_color.dart';
 import 'package:sqflite/sqflite.dart';
+import 'package:sqflite_common/sqflite_logger.dart';
 import 'package:timecop/data_providers/data/data_provider.dart';
 import 'package:timecop/models/timer_entry.dart';
 import 'package:timecop/models/project.dart';
@@ -64,6 +65,18 @@ class DatabaseProvider extends DataProvider {
     ''');
     await db.execute('''
       create index if not exists timers_start_time on timers(start_time)
+    ''');
+    await db.execute('''
+      create table project_sync (
+        sync_id text not null,
+        internal_id int not null,
+        status text default 'SYNCING',
+        tasks_sha text default 'null',
+        last_updated int,
+        unique (internal_id),
+        primary key (sync_id),
+        foreign key (internal_id) references projects(id)
+      )
     ''');
   }
 
@@ -121,12 +134,16 @@ class DatabaseProvider extends DataProvider {
   }
 
   static Future<DatabaseProvider> open(String path) async {
+    var factoryWithLogs = SqfliteDatabaseFactoryLogger(databaseFactory,
+        options:
+            SqfliteLoggerOptions(type: SqfliteDatabaseFactoryLoggerType.all));
     // open the database
-    Database db = await openDatabase(path,
-        onConfigure: _onConfigure,
-        onCreate: _onCreate,
-        onUpgrade: _onUpgrade,
-        version: _dbVersion);
+    Database db = await factoryWithLogs.openDatabase(path,
+        options: OpenDatabaseOptions(
+            onConfigure: _onConfigure,
+            onCreate: _onCreate,
+            onUpgrade: _onUpgrade,
+            version: _dbVersion));
     await db.execute("PRAGMA foreign_keys = ON");
     DatabaseProvider repo = DatabaseProvider(db);
 
@@ -150,7 +167,7 @@ class DatabaseProvider extends DataProvider {
   @override
   Future<List<Project>> listProjects() async {
     List<Map<String, dynamic>> rawProjects = await _db.rawQuery('''
-        select id, name, colour, 
+        select id, name, colour,
             case archived
                 when 'false' then 0
                 when 'true' then 1
